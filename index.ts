@@ -92,14 +92,3 @@ export function object<T extends Record<string, Schema<any>>>(
     },
   };
 }
-
-const schema = object({
-  ruan: object({
-    nome: string(),
-    idade: number(),
-  }),
-});
-
-const pessoa = schema.parse({});
-
-console.log({ pessoa });
