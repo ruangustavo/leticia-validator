@@ -20,6 +20,8 @@ interface NumberSchema extends Schema<number> {
 interface StringSchema extends Schema<string> {
   min(length: number): StringSchema;
   max(length: number): StringSchema;
+  email(): StringSchema;
+  regex(pattern: string): StringSchema;
   _validations?: ValidationFn<string>[];
 }
 
@@ -156,6 +158,27 @@ export function string(): StringSchema {
       });
       return schema;
     },
+    email: () => {
+      const EMAIL_PATTERN =
+        /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+
+      validations.push((val: string) => {
+        if (!EMAIL_PATTERN.test(val)) {
+          throw new Error(`Invalid email format: ${val}`);
+        }
+      });
+
+      return schema;
+    },
+    regex: (pattern: string) => {
+      validations.push((val: string) => {
+        if (!new RegExp(pattern).test(val)) {
+          throw new Error(`String does not match pattern: ${pattern}`);
+        }
+      });
+
+      return schema;
+    },
     _validations: validations,
   };
 
@@ -200,3 +223,12 @@ export function object<T extends Record<string, Schema<any>>>(
     },
   };
 }
+
+export const l = {
+  string,
+  number,
+  boolean,
+  object,
+  array,
+  optional,
+};

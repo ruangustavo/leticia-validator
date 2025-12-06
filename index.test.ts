@@ -149,6 +149,272 @@ describe("Primitive Validators", () => {
         );
       });
     });
+
+    describe("regex()", () => {
+      test("accepts strings matching the pattern", () => {
+        const schema = string().regex("^[0-9]+$");
+        expect(schema.parse("123")).toBe("123");
+        expect(schema.parse("0")).toBe("0");
+        expect(schema.parse("999999")).toBe("999999");
+      });
+
+      test("throws on strings not matching the pattern", () => {
+        const schema = string().regex("^[0-9]+$");
+        expect(() => schema.parse("abc")).toThrow(
+          "String does not match pattern: ^[0-9]+$",
+        );
+        expect(() => schema.parse("12a34")).toThrow(
+          "String does not match pattern: ^[0-9]+$",
+        );
+      });
+
+      test("works with alphanumeric pattern", () => {
+        const schema = string().regex("^[a-zA-Z0-9]+$");
+        expect(schema.parse("abc123")).toBe("abc123");
+        expect(schema.parse("ABC")).toBe("ABC");
+        expect(() => schema.parse("abc-123")).toThrow();
+      });
+
+      test("works with phone number pattern", () => {
+        const schema = string().regex("^\\d{3}-\\d{3}-\\d{4}$");
+        expect(schema.parse("123-456-7890")).toBe("123-456-7890");
+        expect(() => schema.parse("1234567890")).toThrow();
+        expect(() => schema.parse("123-45-6789")).toThrow();
+      });
+
+      test("works with URL pattern", () => {
+        const schema = string().regex("^https?://[^\\s]+$");
+        expect(schema.parse("http://example.com")).toBe("http://example.com");
+        expect(schema.parse("https://example.com/path")).toBe(
+          "https://example.com/path",
+        );
+        expect(() => schema.parse("ftp://example.com")).toThrow();
+      });
+
+      test("works with case-insensitive pattern through flags", () => {
+        const schema = string().regex("^hello$");
+        expect(schema.parse("hello")).toBe("hello");
+        expect(() => schema.parse("HELLO")).toThrow();
+        expect(() => schema.parse("Hello")).toThrow();
+      });
+
+      test("works with special characters requiring escaping", () => {
+        const schema = string().regex("^\\$[0-9]+\\.[0-9]{2}$");
+        expect(schema.parse("$10.99")).toBe("$10.99");
+        expect(schema.parse("$0.50")).toBe("$0.50");
+        expect(() => schema.parse("10.99")).toThrow();
+        expect(() => schema.parse("$10")).toThrow();
+      });
+
+      test("works with wildcard patterns", () => {
+        const schema = string().regex("test.*end");
+        expect(schema.parse("test123end")).toBe("test123end");
+        expect(schema.parse("testend")).toBe("testend");
+        expect(schema.parse("test with spaces end")).toBe(
+          "test with spaces end",
+        );
+        expect(() => schema.parse("test")).toThrow();
+      });
+
+      test("works with alternation pattern", () => {
+        const schema = string().regex("^(red|green|blue)$");
+        expect(schema.parse("red")).toBe("red");
+        expect(schema.parse("green")).toBe("green");
+        expect(schema.parse("blue")).toBe("blue");
+        expect(() => schema.parse("yellow")).toThrow();
+      });
+
+      test("works when chained with min() and max()", () => {
+        const schema = string().min(5).max(10).regex("^[a-z]+$");
+        expect(schema.parse("hello")).toBe("hello");
+        expect(schema.parse("abcdefgh")).toBe("abcdefgh");
+        expect(() => schema.parse("hi")).toThrow(); // too short
+        expect(() => schema.parse("verylongstring")).toThrow(); // too long
+        expect(() => schema.parse("Hello")).toThrow(); // doesn't match pattern
+      });
+
+      test("works when chained after min() and max()", () => {
+        const schema = string().regex("^[0-9]+$").min(3).max(6);
+        expect(schema.parse("123")).toBe("123");
+        expect(schema.parse("123456")).toBe("123456");
+        expect(() => schema.parse("12")).toThrow();
+        expect(() => schema.parse("abc")).toThrow();
+      });
+
+      test("validates regex pattern before other validations", () => {
+        const schema = string().regex("^[0-9]+$").min(3);
+        expect(() => schema.parse("ab")).toThrow(
+          "String does not match pattern",
+        );
+      });
+
+      test("accepts empty string if pattern allows", () => {
+        const schema = string().regex("^[0-9]*$"); // asterisk allows zero or more
+        expect(schema.parse("")).toBe("");
+        expect(schema.parse("123")).toBe("123");
+      });
+
+      test("rejects empty string if pattern requires content", () => {
+        const schema = string().regex("^[0-9]+$"); // plus requires one or more
+        expect(() => schema.parse("")).toThrow();
+      });
+
+      test("works with multiple regex validations chained", () => {
+        const schema = string().regex("^[a-z]+$").regex("^.{5,}$");
+        expect(schema.parse("hello")).toBe("hello");
+        expect(schema.parse("world")).toBe("world");
+        expect(() => schema.parse("hi")).toThrow(); // too short for second regex
+        expect(() => schema.parse("HELLO")).toThrow(); // doesn't match first regex
+      });
+    });
+
+    describe("email()", () => {
+      test("accepts valid email addresses", () => {
+        const schema = string().email();
+        expect(schema.parse("user@example.com")).toBe("user@example.com");
+        expect(schema.parse("test.user@domain.co.uk")).toBe(
+          "test.user@domain.co.uk",
+        );
+        expect(schema.parse("first_last@example.com")).toBe(
+          "first_last@example.com",
+        );
+        expect(schema.parse("user+tag@example.com")).toBe(
+          "user+tag@example.com",
+        );
+        expect(schema.parse("test-user@example.com")).toBe(
+          "test-user@example.com",
+        );
+        expect(schema.parse("user123@test.io")).toBe("user123@test.io");
+        expect(schema.parse("a@example.com")).toBe("a@example.com");
+      });
+
+      test("throws on invalid email format - missing @", () => {
+        const schema = string().email();
+        expect(() => schema.parse("userexample.com")).toThrow(
+          "Invalid email format: userexample.com",
+        );
+        expect(() => schema.parse("user.example.com")).toThrow(
+          "Invalid email format: user.example.com",
+        );
+      });
+
+      test("throws on invalid email format - missing domain", () => {
+        const schema = string().email();
+        expect(() => schema.parse("user@")).toThrow(
+          "Invalid email format: user@",
+        );
+        expect(() => schema.parse("user@.com")).toThrow(
+          "Invalid email format: user@.com",
+        );
+      });
+
+      test("throws on invalid email format - missing username", () => {
+        const schema = string().email();
+        expect(() => schema.parse("@example.com")).toThrow(
+          "Invalid email format: @example.com",
+        );
+      });
+
+      test("throws on invalid email format - starts with dot", () => {
+        const schema = string().email();
+        expect(() => schema.parse(".user@example.com")).toThrow(
+          "Invalid email format: .user@example.com",
+        );
+      });
+
+      test("throws on invalid email format - consecutive dots", () => {
+        const schema = string().email();
+        expect(() => schema.parse("user..name@example.com")).toThrow(
+          "Invalid email format: user..name@example.com",
+        );
+      });
+
+      test("throws on invalid email format - invalid TLD", () => {
+        const schema = string().email();
+        expect(() => schema.parse("user@example.c")).toThrow(
+          "Invalid email format: user@example.c",
+        );
+        expect(() => schema.parse("user@example.1")).toThrow(
+          "Invalid email format: user@example.1",
+        );
+      });
+
+      test("throws on invalid email format - special characters", () => {
+        const schema = string().email();
+        expect(() => schema.parse("user name@example.com")).toThrow(
+          "Invalid email format: user name@example.com",
+        );
+        expect(() => schema.parse("user@exam ple.com")).toThrow(
+          "Invalid email format: user@exam ple.com",
+        );
+      });
+
+      test("throws on empty string", () => {
+        const schema = string().email();
+        expect(() => schema.parse("")).toThrow("Invalid email format: ");
+      });
+
+      test("accepts emails with multiple subdomains", () => {
+        const schema = string().email();
+        expect(schema.parse("user@mail.example.com")).toBe(
+          "user@mail.example.com",
+        );
+        expect(schema.parse("test@dev.staging.example.co.uk")).toBe(
+          "test@dev.staging.example.co.uk",
+        );
+      });
+
+      test("accepts emails with long TLDs", () => {
+        const schema = string().email();
+        expect(schema.parse("user@example.technology")).toBe(
+          "user@example.technology",
+        );
+        expect(schema.parse("test@example.museum")).toBe("test@example.museum");
+      });
+
+      test("accepts email with hyphens in domain", () => {
+        const schema = string().email();
+        expect(schema.parse("user@my-domain.com")).toBe("user@my-domain.com");
+        expect(schema.parse("test@ex-am-ple.com")).toBe("test@ex-am-ple.com");
+        expect(schema.parse("user@example-.com")).toBe("user@example-.com");
+      });
+
+      test("accepts email ending with plus or minus before @", () => {
+        const schema = string().email();
+        expect(schema.parse("user+@example.com")).toBe("user+@example.com");
+        expect(schema.parse("user-@example.com")).toBe("user-@example.com");
+      });
+
+      test("works with min() and max() chaining", () => {
+        const schema = string().email().min(10).max(30);
+        expect(schema.parse("test@example.com")).toBe("test@example.com");
+
+        expect(() => schema.parse("a@b.co")).toThrow(
+          "String must have at least 10 characters, got 6",
+        );
+
+        expect(() => schema.parse("verylongemail@verylongdomain.com")).toThrow(
+          "String must have at most 30 characters, got 32",
+        );
+      });
+
+      test("works when chained after min() and max()", () => {
+        const schema = string().min(10).max(50).email();
+        expect(schema.parse("test@example.com")).toBe("test@example.com");
+
+        expect(() => schema.parse("a@b.co")).toThrow(
+          "String must have at least 10 characters, got 6",
+        );
+      });
+
+      test("validates email format before other validations", () => {
+        const schema = string().email().min(20);
+        // Email validation happens first, so this should fail on email format
+        expect(() => schema.parse("invalid-email")).toThrow(
+          "Invalid email format: invalid-email",
+        );
+      });
+    });
   });
 
   describe("number()", () => {
