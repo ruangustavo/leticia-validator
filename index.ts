@@ -5,7 +5,7 @@ interface Schema<T> {
 
 type InferSchemaType<TSchema> = TSchema extends Schema<infer T> ? T : never;
 
-type InferObjectType<TShape extends Record<string, Schema<any>>> = {
+export type InferObjectType<TShape extends Record<string, Schema<any>>> = {
   [K in keyof TShape]: InferSchemaType<TShape[K]>;
 };
 
