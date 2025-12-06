@@ -18,20 +18,58 @@ interface NumberSchema extends Schema<number> {
 }
 
 interface StringSchema extends Schema<string> {
-  min(value: number): StringSchema;
-  max(value: number): StringSchema;
+  min(length: number): StringSchema;
+  max(length: number): StringSchema;
   _validations?: ValidationFn<string>[];
 }
 
-export function array<T>(schema: Schema<T>): Schema<T[]> {
-  return {
+interface ArraySchema<T> extends Schema<T[]> {
+  min(length: number): ArraySchema<T>;
+  max(length: number): ArraySchema<T>;
+  _validations?: ValidationFn<T[]>[];
+}
+
+export function array<T>(itemSchema: Schema<T>): ArraySchema<T> {
+  const validations: ValidationFn<T[]>[] = [];
+
+  const arraySchema: ArraySchema<T> = {
     parse: (value: unknown) => {
       if (!Array.isArray(value)) {
         throw new Error(`Expected array, got ${typeof value}`);
       }
-      return value.map((item) => schema.parse(item));
+
+      const result = value.map((item) => itemSchema.parse(item));
+
+      for (const validate of validations) {
+        validate(result);
+      }
+
+      return result;
     },
+    min: (minLength: number) => {
+      validations.push((val: T[]) => {
+        if (val.length < minLength) {
+          throw new Error(
+            `Array must have at least ${minLength} items, got ${val.length}`,
+          );
+        }
+      });
+      return arraySchema;
+    },
+    max: (maxLength: number) => {
+      validations.push((val: T[]) => {
+        if (val.length > maxLength) {
+          throw new Error(
+            `Array must have at most ${maxLength} items, got ${val.length}`,
+          );
+        }
+      });
+      return arraySchema;
+    },
+    _validations: validations,
   };
+
+  return arraySchema;
 }
 
 export function optional<T>(schema: Schema<T>): Schema<T | undefined> {

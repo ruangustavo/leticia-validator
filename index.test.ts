@@ -430,6 +430,177 @@ describe("array()", () => {
       "Expected number, got string",
     );
   });
+
+  describe("min()", () => {
+    test("accepts arrays with length greater than or equal to minimum", () => {
+      const schema = array(string()).min(2);
+      expect(schema.parse(["a", "b"])).toEqual(["a", "b"]);
+      expect(schema.parse(["a", "b", "c"])).toEqual(["a", "b", "c"]);
+    });
+
+    test("throws on arrays shorter than minimum", () => {
+      const schema = array(string()).min(3);
+      expect(() => schema.parse(["a", "b"])).toThrow(
+        "Array must have at least 3 items, got 2",
+      );
+      expect(() => schema.parse(["a"])).toThrow(
+        "Array must have at least 3 items, got 1",
+      );
+      expect(() => schema.parse([])).toThrow(
+        "Array must have at least 3 items, got 0",
+      );
+    });
+
+    test("works with zero minimum", () => {
+      const schema = array(number()).min(0);
+      expect(schema.parse([])).toEqual([]);
+      expect(schema.parse([1])).toEqual([1]);
+      expect(schema.parse([1, 2, 3])).toEqual([1, 2, 3]);
+    });
+
+    test("works with minimum of 1", () => {
+      const schema = array(boolean()).min(1);
+      expect(schema.parse([true])).toEqual([true]);
+      expect(schema.parse([true, false])).toEqual([true, false]);
+      expect(() => schema.parse([])).toThrow(
+        "Array must have at least 1 items, got 0",
+      );
+    });
+
+    test("validates items before checking length", () => {
+      const schema = array(number()).min(2);
+      expect(() => schema.parse(["a", "b", "c"])).toThrow(
+        "Expected number, got string",
+      );
+    });
+  });
+
+  describe("max()", () => {
+    test("accepts arrays with length less than or equal to maximum", () => {
+      const schema = array(string()).max(3);
+      expect(schema.parse([])).toEqual([]);
+      expect(schema.parse(["a"])).toEqual(["a"]);
+      expect(schema.parse(["a", "b", "c"])).toEqual(["a", "b", "c"]);
+    });
+
+    test("throws on arrays longer than maximum", () => {
+      const schema = array(number()).max(2);
+      expect(() => schema.parse([1, 2, 3])).toThrow(
+        "Array must have at most 2 items, got 3",
+      );
+      expect(() => schema.parse([1, 2, 3, 4, 5])).toThrow(
+        "Array must have at most 2 items, got 5",
+      );
+    });
+
+    test("works with zero maximum", () => {
+      const schema = array(string()).max(0);
+      expect(schema.parse([])).toEqual([]);
+      expect(() => schema.parse(["a"])).toThrow(
+        "Array must have at most 0 items, got 1",
+      );
+    });
+
+    test("validates items before checking length", () => {
+      const schema = array(string()).max(5);
+      expect(() => schema.parse([1, 2])).toThrow("Expected string, got number");
+    });
+  });
+
+  describe("min() and max() combined", () => {
+    test("accepts arrays within length range", () => {
+      const schema = array(number()).min(2).max(4);
+      expect(schema.parse([1, 2])).toEqual([1, 2]);
+      expect(schema.parse([1, 2, 3])).toEqual([1, 2, 3]);
+      expect(schema.parse([1, 2, 3, 4])).toEqual([1, 2, 3, 4]);
+    });
+
+    test("throws on arrays shorter than minimum", () => {
+      const schema = array(string()).min(2).max(5);
+      expect(() => schema.parse([])).toThrow(
+        "Array must have at least 2 items, got 0",
+      );
+      expect(() => schema.parse(["a"])).toThrow(
+        "Array must have at least 2 items, got 1",
+      );
+    });
+
+    test("throws on arrays longer than maximum", () => {
+      const schema = array(boolean()).min(1).max(3);
+      expect(() => schema.parse([true, false, true, false])).toThrow(
+        "Array must have at most 3 items, got 4",
+      );
+    });
+
+    test("works when chained in reverse order", () => {
+      const schema = array(number()).max(4).min(2);
+      expect(schema.parse([1, 2])).toEqual([1, 2]);
+      expect(schema.parse([1, 2, 3, 4])).toEqual([1, 2, 3, 4]);
+      expect(() => schema.parse([1])).toThrow(
+        "Array must have at least 2 items, got 1",
+      );
+      expect(() => schema.parse([1, 2, 3, 4, 5])).toThrow(
+        "Array must have at most 4 items, got 5",
+      );
+    });
+
+    test("works with exact length when min equals max", () => {
+      const schema = array(string()).min(3).max(3);
+      expect(schema.parse(["a", "b", "c"])).toEqual(["a", "b", "c"]);
+      expect(() => schema.parse(["a", "b"])).toThrow(
+        "Array must have at least 3 items, got 2",
+      );
+      expect(() => schema.parse(["a", "b", "c", "d"])).toThrow(
+        "Array must have at most 3 items, got 4",
+      );
+    });
+
+    test("validates with nested arrays", () => {
+      const schema = array(array(number())).min(1).max(3);
+      expect(
+        schema.parse([
+          [1, 2],
+          [3, 4],
+        ]),
+      ).toEqual([
+        [1, 2],
+        [3, 4],
+      ]);
+      expect(() => schema.parse([])).toThrow(
+        "Array must have at least 1 items, got 0",
+      );
+      expect(() => schema.parse([[1], [2], [3], [4]])).toThrow(
+        "Array must have at most 3 items, got 4",
+      );
+    });
+
+    test("validates with array of objects", () => {
+      const schema = array(
+        object({
+          id: number(),
+          name: string(),
+        }),
+      )
+        .min(1)
+        .max(2);
+
+      expect(schema.parse([{ id: 1, name: "Ruan" }])).toEqual([
+        { id: 1, name: "Ruan" },
+      ]);
+
+      expect(() => schema.parse([])).toThrow(
+        "Array must have at least 1 items, got 0",
+      );
+
+      expect(() =>
+        schema.parse([
+          { id: 1, name: "Ruan" },
+          { id: 2, name: "Bot" },
+          { id: 3, name: "Test" },
+        ]),
+      ).toThrow("Array must have at most 2 items, got 3");
+    });
+  });
 });
 
 describe("optional()", () => {
