@@ -9,6 +9,20 @@ type InferObjectType<TShape extends Record<string, Schema<any>>> = {
   [K in keyof TShape]: InferSchemaType<TShape[K]>;
 };
 
+type ValidationFn<T> = (val: T) => void;
+
+interface NumberSchema extends Schema<number> {
+  min(value: number): NumberSchema;
+  max(value: number): NumberSchema;
+  _validations?: ValidationFn<number>[];
+}
+
+interface StringSchema extends Schema<string> {
+  min(value: number): StringSchema;
+  max(value: number): StringSchema;
+  _validations?: ValidationFn<string>[];
+}
+
 export function array<T>(schema: Schema<T>): Schema<T[]> {
   return {
     parse: (value: unknown) => {
@@ -32,26 +46,82 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
   };
 }
 
-export function number(): Schema<number> {
-  return {
+export function number(): NumberSchema {
+  const validations: ValidationFn<number>[] = [];
+
+  const schema: NumberSchema = {
     parse: (value: unknown) => {
       if (typeof value !== "number") {
         throw new Error(`Expected number, got ${typeof value}`);
       }
+
+      for (const validate of validations) {
+        validate(value);
+      }
+
       return value;
     },
+    min: (minValue: number) => {
+      validations.push((val: number) => {
+        if (val < minValue) {
+          throw new Error(`Number must be >= ${minValue}, got ${val}`);
+        }
+      });
+      return schema;
+    },
+    max: (maxValue: number) => {
+      validations.push((val: number) => {
+        if (val > maxValue) {
+          throw new Error(`Number must be <= ${maxValue}, got ${val}`);
+        }
+      });
+      return schema;
+    },
+    _validations: validations,
   };
+
+  return schema;
 }
 
-export function string(): Schema<string> {
-  return {
+export function string(): StringSchema {
+  const validations: ValidationFn<string>[] = [];
+
+  const schema: StringSchema = {
     parse: (value: unknown) => {
       if (typeof value !== "string") {
         throw new Error(`Expected string, got ${typeof value}`);
       }
+
+      for (const validate of validations) {
+        validate(value);
+      }
+
       return value;
     },
+    min: (minLength: number) => {
+      validations.push((val: string) => {
+        if (val.length < minLength) {
+          throw new Error(
+            `String must have at least ${minLength} characters, got ${val.length}`,
+          );
+        }
+      });
+      return schema;
+    },
+    max: (maxLength: number) => {
+      validations.push((val: string) => {
+        if (val.length > maxLength) {
+          throw new Error(
+            `String must have at most ${maxLength} characters, got ${val.length}`,
+          );
+        }
+      });
+      return schema;
+    },
+    _validations: validations,
   };
+
+  return schema;
 }
 
 export function boolean(): Schema<boolean> {

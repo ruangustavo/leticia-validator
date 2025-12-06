@@ -21,6 +21,134 @@ describe("Primitive Validators", () => {
       expect(() => schema.parse({})).toThrow("Expected string, got object");
       expect(() => schema.parse([])).toThrow("Expected string, got object");
     });
+
+    describe("min()", () => {
+      test("accepts strings with length greater than or equal to minimum", () => {
+        const schema = string().min(3);
+        expect(schema.parse("abc")).toBe("abc");
+        expect(schema.parse("abcd")).toBe("abcd");
+        expect(schema.parse("hello world")).toBe("hello world");
+      });
+
+      test("throws on strings shorter than minimum", () => {
+        const schema = string().min(3);
+        expect(() => schema.parse("ab")).toThrow(
+          "String must have at least 3 characters, got 2",
+        );
+        expect(() => schema.parse("a")).toThrow(
+          "String must have at least 3 characters, got 1",
+        );
+        expect(() => schema.parse("")).toThrow(
+          "String must have at least 3 characters, got 0",
+        );
+      });
+
+      test("works with zero minimum", () => {
+        const schema = string().min(0);
+        expect(schema.parse("")).toBe("");
+        expect(schema.parse("a")).toBe("a");
+        expect(schema.parse("hello")).toBe("hello");
+      });
+
+      test("works with minimum of 1", () => {
+        const schema = string().min(1);
+        expect(schema.parse("a")).toBe("a");
+        expect(schema.parse("hello")).toBe("hello");
+        expect(() => schema.parse("")).toThrow(
+          "String must have at least 1 characters, got 0",
+        );
+      });
+
+      test("counts UTF-16 code units, not grapheme clusters", () => {
+        const schema = string().min(4);
+        // Emoji like 😀 are 2 UTF-16 code units each
+        expect(schema.parse("😀😁")).toBe("😀😁"); // 4 code units
+        expect(() => schema.parse("😀")).toThrow(
+          "String must have at least 4 characters, got 2",
+        );
+      });
+    });
+
+    describe("max()", () => {
+      test("accepts strings with length less than or equal to maximum", () => {
+        const schema = string().max(5);
+        expect(schema.parse("hello")).toBe("hello");
+        expect(schema.parse("hi")).toBe("hi");
+        expect(schema.parse("")).toBe("");
+      });
+
+      test("throws on strings longer than maximum", () => {
+        const schema = string().max(5);
+        expect(() => schema.parse("hello!")).toThrow(
+          "String must have at most 5 characters, got 6",
+        );
+        expect(() => schema.parse("hello world")).toThrow(
+          "String must have at most 5 characters, got 11",
+        );
+      });
+
+      test("works with zero maximum", () => {
+        const schema = string().max(0);
+        expect(schema.parse("")).toBe("");
+        expect(() => schema.parse("a")).toThrow(
+          "String must have at most 0 characters, got 1",
+        );
+      });
+
+      test("counts UTF-16 code units, not grapheme clusters", () => {
+        const schema = string().max(4);
+        // Emoji like 😀 are 2 UTF-16 code units each
+        expect(schema.parse("😀😁")).toBe("😀😁"); // 4 code units
+        expect(() => schema.parse("😀😁😂")).toThrow(
+          "String must have at most 4 characters, got 6",
+        );
+      });
+    });
+
+    describe("min() and max() combined", () => {
+      test("accepts strings within length range", () => {
+        const schema = string().min(3).max(5);
+        expect(schema.parse("abc")).toBe("abc");
+        expect(schema.parse("abcd")).toBe("abcd");
+        expect(schema.parse("hello")).toBe("hello");
+      });
+
+      test("throws on strings shorter than minimum", () => {
+        const schema = string().min(3).max(5);
+        expect(() => schema.parse("ab")).toThrow(
+          "String must have at least 3 characters, got 2",
+        );
+      });
+
+      test("throws on strings longer than maximum", () => {
+        const schema = string().min(3).max(5);
+        expect(() => schema.parse("hello!")).toThrow(
+          "String must have at most 5 characters, got 6",
+        );
+      });
+
+      test("works when chained in reverse order", () => {
+        const schema = string().max(5).min(3);
+        expect(schema.parse("abc")).toBe("abc");
+        expect(() => schema.parse("ab")).toThrow(
+          "String must have at least 3 characters, got 2",
+        );
+        expect(() => schema.parse("hello!")).toThrow(
+          "String must have at most 5 characters, got 6",
+        );
+      });
+
+      test("works with exact length when min equals max", () => {
+        const schema = string().min(5).max(5);
+        expect(schema.parse("hello")).toBe("hello");
+        expect(() => schema.parse("hi")).toThrow(
+          "String must have at least 5 characters, got 2",
+        );
+        expect(() => schema.parse("hello!")).toThrow(
+          "String must have at most 5 characters, got 6",
+        );
+      });
+    });
   });
 
   describe("number()", () => {
@@ -44,6 +172,118 @@ describe("Primitive Validators", () => {
       );
       expect(() => schema.parse({})).toThrow("Expected number, got object");
       expect(() => schema.parse([])).toThrow("Expected number, got object");
+    });
+
+    describe("min()", () => {
+      test("accepts numbers greater than or equal to minimum", () => {
+        const schema = number().min(5);
+        expect(schema.parse(5)).toBe(5);
+        expect(schema.parse(6)).toBe(6);
+        expect(schema.parse(100)).toBe(100);
+      });
+
+      test("throws on numbers less than minimum", () => {
+        const schema = number().min(5);
+        expect(() => schema.parse(4)).toThrow("Number must be >= 5, got 4");
+        expect(() => schema.parse(0)).toThrow("Number must be >= 5, got 0");
+        expect(() => schema.parse(-10)).toThrow("Number must be >= 5, got -10");
+      });
+
+      test("works with negative minimums", () => {
+        const schema = number().min(-10);
+        expect(schema.parse(-10)).toBe(-10);
+        expect(schema.parse(-5)).toBe(-5);
+        expect(schema.parse(0)).toBe(0);
+        expect(() => schema.parse(-11)).toThrow(
+          "Number must be >= -10, got -11",
+        );
+      });
+
+      test("works with decimal minimums", () => {
+        const schema = number().min(3.14);
+        expect(schema.parse(3.14)).toBe(3.14);
+        expect(schema.parse(3.15)).toBe(3.15);
+        expect(() => schema.parse(3.13)).toThrow(
+          "Number must be >= 3.14, got 3.13",
+        );
+      });
+
+      test("works with zero minimum", () => {
+        const schema = number().min(0);
+        expect(schema.parse(0)).toBe(0);
+        expect(schema.parse(1)).toBe(1);
+        expect(() => schema.parse(-1)).toThrow("Number must be >= 0, got -1");
+      });
+    });
+
+    describe("max()", () => {
+      test("accepts numbers less than or equal to maximum", () => {
+        const schema = number().max(10);
+        expect(schema.parse(10)).toBe(10);
+        expect(schema.parse(9)).toBe(9);
+        expect(schema.parse(0)).toBe(0);
+        expect(schema.parse(-100)).toBe(-100);
+      });
+
+      test("throws on numbers greater than maximum", () => {
+        const schema = number().max(10);
+        expect(() => schema.parse(11)).toThrow("Number must be <= 10, got 11");
+        expect(() => schema.parse(100)).toThrow(
+          "Number must be <= 10, got 100",
+        );
+      });
+
+      test("works with negative maximums", () => {
+        const schema = number().max(-5);
+        expect(schema.parse(-5)).toBe(-5);
+        expect(schema.parse(-10)).toBe(-10);
+        expect(() => schema.parse(-4)).toThrow("Number must be <= -5, got -4");
+        expect(() => schema.parse(0)).toThrow("Number must be <= -5, got 0");
+      });
+
+      test("works with decimal maximums", () => {
+        const schema = number().max(9.99);
+        expect(schema.parse(9.99)).toBe(9.99);
+        expect(schema.parse(9.98)).toBe(9.98);
+        expect(() => schema.parse(10)).toThrow(
+          "Number must be <= 9.99, got 10",
+        );
+      });
+    });
+
+    describe("min() and max() combined", () => {
+      test("accepts numbers within range", () => {
+        const schema = number().min(5).max(10);
+        expect(schema.parse(5)).toBe(5);
+        expect(schema.parse(7)).toBe(7);
+        expect(schema.parse(10)).toBe(10);
+      });
+
+      test("throws on numbers below minimum", () => {
+        const schema = number().min(5).max(10);
+        expect(() => schema.parse(4)).toThrow("Number must be >= 5, got 4");
+      });
+
+      test("throws on numbers above maximum", () => {
+        const schema = number().min(5).max(10);
+        expect(() => schema.parse(11)).toThrow("Number must be <= 10, got 11");
+      });
+
+      test("works when chained in reverse order", () => {
+        const schema = number().max(10).min(5);
+        expect(schema.parse(7)).toBe(7);
+        expect(() => schema.parse(4)).toThrow("Number must be >= 5, got 4");
+        expect(() => schema.parse(11)).toThrow("Number must be <= 10, got 11");
+      });
+
+      test("works with negative ranges", () => {
+        const schema = number().min(-10).max(-5);
+        expect(schema.parse(-7)).toBe(-7);
+        expect(() => schema.parse(-11)).toThrow(
+          "Number must be >= -10, got -11",
+        );
+        expect(() => schema.parse(-4)).toThrow("Number must be <= -5, got -4");
+      });
     });
   });
 
